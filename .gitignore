@@ -1,0 +1,11 @@
+node_modules/
+reports/
+test-results/
+playwright-report/
+allure-results/
+allure-report/
+.DS_Store
+
+# env/.env.*
+# !env/.env.dev
+# !env/.env.qa

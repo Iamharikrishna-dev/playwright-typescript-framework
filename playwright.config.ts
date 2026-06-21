@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load the env file for the active environment.
+// Defaults to "dev" — run with ENV=qa npm test (or one of the npm scripts) to switch.
+const environment = process.env.ENV || 'qa';
+dotenv.config({ path: path.resolve(__dirname, `env/.env.${environment}`) });
 
 export default defineConfig({
   testDir: './tests',
@@ -13,7 +20,7 @@ export default defineConfig({
   
   
  
-  reporter:[['html',{OutputFolder:'./reports',open:'never'}],['allure-playwright',{outputFolder:'./allure-results',open:'never'}]],
+  reporter:[['html',{outputFolder:'./reports',open:'never'}],['allure-playwright',{outputFolder:'./allure-results',open:'never'}]],
   
   use: {
   baseURL: process.env.BASE_URL,

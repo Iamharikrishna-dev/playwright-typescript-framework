@@ -1,5 +1,20 @@
-import { Page, Locator, expect, Frame, Download } from '@playwright/test';
+import { Page, Locator, Frame, Download, expect } from '@playwright/test';
+import { logger } from './logger';
 
+/**
+ * BasePage
+ * ---------
+ * Every action/assertion below takes the Locator as a parameter instead of
+ * having a separate "byRole" / "byTestId" / "byLabel" / "byPlaceholder"
+ * variant of each method. Locators belong in the Page Object (built with
+ * page.getByRole / getByTestId / etc.) — BasePage just knows how to act on
+ * whatever Locator it's handed. That keeps this class small and means new
+ * locator strategies never require touching BasePage.
+ *
+ * Each method wraps its action in try/catch so failures are logged (via the
+ * shared Winston logger in ./logger) with context before being rethrown for
+ * Playwright to report.
+ */
 export class BasePage {
   protected page: Page;
 
@@ -10,10 +25,10 @@ export class BasePage {
   // ================= NAVIGATION =================
   async navigate(url: string) {
     try {
-      console.log(`Navigating to ${url}`);
+      logger.info(`Navigating to ${url}`);
       await this.page.goto(url);
     } catch (e) {
-      console.error(`Navigation failed: ${e}`);
+      logger.error(`Navigate failed for ${url}: ${e}`);
       throw e;
     }
   }
@@ -22,7 +37,7 @@ export class BasePage {
     try {
       await this.page.reload();
     } catch (e) {
-      console.error(`Reload failed: ${e}`);
+      logger.error(`Reload failed: ${e}`);
       throw e;
     }
   }
@@ -31,7 +46,7 @@ export class BasePage {
     try {
       await this.page.goBack();
     } catch (e) {
-      console.error(`Go back failed: ${e}`);
+      logger.error(`Go back failed: ${e}`);
       throw e;
     }
   }
@@ -40,7 +55,7 @@ export class BasePage {
     try {
       await this.page.goForward();
     } catch (e) {
-      console.error(`Go forward failed: ${e}`);
+      logger.error(`Go forward failed: ${e}`);
       throw e;
     }
   }
@@ -48,643 +63,217 @@ export class BasePage {
   // ================= ACTIONS =================
   async click(locator: Locator, name?: string) {
     try {
-      console.log(`Clicking ${name || "element"}`);
+      logger.info(`Clicking ${name || locator}`);
       await expect(locator).toBeVisible();
       await locator.click();
     } catch (e) {
-      console.error(`Click failed on ${name}: ${e}`);
+      logger.error(`Click failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async clickByRole(role: string, name: string) {
+  async doubleClick(locator: Locator, name?: string) {
     try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Clicking role: ${role}, name: ${name}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
+      logger.info(`Double-clicking ${name || locator}`);
+      await locator.dblclick();
     } catch (e) {
-      console.error(`clickByRole failed: ${e}`);
+      logger.error(`Double click failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async clickByText(text: string) {
+  async rightClick(locator: Locator, name?: string) {
     try {
-      const locator = this.page.getByText(text);
-      console.log(`Clicking text: ${text}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
+      logger.info(`Right-clicking ${name || locator}`);
+      await locator.click({ button: 'right' });
     } catch (e) {
-      console.error(`clickByText failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByLabel(label: string) {
-    try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Clicking label: ${label}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
-    } catch (e) {
-      console.error(`clickByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByPlaceholder(placeholder: string) {
-    try {
-      const locator = this.page.getByPlaceholder(placeholder);
-      console.log(`Clicking placeholder: ${placeholder}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
-    } catch (e) {
-      console.error(`clickByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByTestId(testId: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Clicking testId: ${testId}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
-    } catch (e) {
-      console.error(`clickByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByAltText(text: string) {
-    try {
-      const locator = this.page.getByAltText(text);
-      console.log(`Clicking alt text: ${text}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
-    } catch (e) {
-      console.error(`clickByAltText failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByTitle(title: string) {
-    try {
-      const locator = this.page.getByTitle(title);
-      console.log(`Clicking title: ${title}`);
-      await expect(locator).toBeVisible();
-      await locator.click();
-    } catch (e) {
-      console.error(`clickByTitle failed: ${e}`);
+      logger.error(`Right click failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
   async clickWithModifier(
     locator: Locator,
-    modifier: "Alt" | "Control" | "Meta" | "Shift",
+    modifier: 'Alt' | 'Control' | 'Meta' | 'Shift',
     name?: string
   ) {
     try {
-      console.log(
-        `Clicking ${name || "element"} with modifier: ${modifier}`
-      );
-      await expect(locator).toBeVisible();
+      logger.info(`Clicking ${name || locator} with modifier: ${modifier}`);
       await locator.click({ modifiers: [modifier] });
     } catch (e) {
-      console.error(`clickWithModifier failed on ${name}: ${e}`);
+      logger.error(`clickWithModifier failed on ${name || locator}: ${e}`);
+      throw e;
+    }
+  }
+
+  async hover(locator: Locator, name?: string) {
+    try {
+      logger.info(`Hovering ${name || locator}`);
+      await locator.hover();
+    } catch (e) {
+      logger.error(`Hover failed on ${name || locator}: ${e}`);
+      throw e;
+    }
+  }
+
+  async focus(locator: Locator, name?: string) {
+    try {
+      logger.info(`Focusing ${name || locator}`);
+      await locator.focus();
+    } catch (e) {
+      logger.error(`Focus failed on ${name || locator}: ${e}`);
+      throw e;
+    }
+  }
+
+  async blur(locator: Locator, name?: string) {
+    try {
+      logger.info(`Blurring ${name || locator}`);
+      await locator.blur();
+    } catch (e) {
+      logger.error(`Blur failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
   async fill(locator: Locator, value: string, name?: string) {
     try {
-      console.log(`Filling ${name || "field"} with ${value}`);
+      logger.info(`Filling ${name || locator} with "${value}"`);
       await expect(locator).toBeVisible();
       await locator.fill(value);
     } catch (e) {
-      console.error(`Fill failed on ${name}: ${e}`);
-      throw e;
-    }
-  }
-
-  async fillByRole(role: string, name: string, value: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Filling role: ${role}, name: ${name} with ${value}`);
-      await expect(locator).toBeVisible();
-      await locator.fill(value);
-    } catch (e) {
-      console.error(`fillByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async fillByLabel(label: string, value: string) {
-    try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Filling label: ${label} with ${value}`);
-      await expect(locator).toBeVisible();
-      await locator.fill(value);
-    } catch (e) {
-      console.error(`fillByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async fillByPlaceholder(placeholder: string, value: string) {
-    try {
-      const locator = this.page.getByPlaceholder(placeholder);
-      console.log(`Filling placeholder: ${placeholder} with ${value}`);
-      await expect(locator).toBeVisible();
-      await locator.fill(value);
-    } catch (e) {
-      console.error(`fillByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async fillByTestId(testId: string, value: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Filling testId: ${testId} with ${value}`);
-      await expect(locator).toBeVisible();
-      await locator.fill(value);
-    } catch (e) {
-      console.error(`fillByTestId failed: ${e}`);
+      logger.error(`Fill failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
   async clearAndFill(locator: Locator, value: string, name?: string) {
     try {
-      console.log(`Clearing and filling ${name || "field"} with ${value}`);
-      await expect(locator).toBeVisible();
+      logger.info(`Clearing and filling ${name || locator} with "${value}"`);
       await locator.clear();
       await locator.fill(value);
     } catch (e) {
-      console.error(`clearAndFill failed on ${name}: ${e}`);
+      logger.error(`clearAndFill failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async clearAndFillByLabel(label: string, value: string) {
+  async clear(locator: Locator, name?: string) {
     try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Clearing and filling label: ${label} with ${value}`);
-      await expect(locator).toBeVisible();
+      logger.info(`Clearing ${name || locator}`);
       await locator.clear();
-      await locator.fill(value);
     } catch (e) {
-      console.error(`clearAndFillByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clearAndFillByPlaceholder(placeholder: string, value: string) {
-    try {
-      const locator = this.page.getByPlaceholder(placeholder);
-      console.log(
-        `Clearing and filling placeholder: ${placeholder} with ${value}`
-      );
-      await expect(locator).toBeVisible();
-      await locator.clear();
-      await locator.fill(value);
-    } catch (e) {
-      console.error(`clearAndFillByPlaceholder failed: ${e}`);
+      logger.error(`Clear failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
   async typeSlowly(locator: Locator, value: string, delay = 100, name?: string) {
     try {
-      console.log(`Typing slowly into ${name || "field"}: ${value}`);
-      await expect(locator).toBeVisible();
+      logger.info(`Typing slowly into ${name || locator}: "${value}"`);
       await locator.pressSequentially(value, { delay });
     } catch (e) {
-      console.error(`typeSlowly failed on ${name}: ${e}`);
+      logger.error(`typeSlowly failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async typeSlowlyByLabel(label: string, value: string, delay = 100) {
-    try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Typing slowly into label: ${label}: ${value}`);
-      await expect(locator).toBeVisible();
-      await locator.pressSequentially(value, { delay });
-    } catch (e) {
-      console.error(`typeSlowlyByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async typeSlowlyByPlaceholder(
-    placeholder: string,
-    value: string,
-    delay = 100
-  ) {
-    try {
-      const locator = this.page.getByPlaceholder(placeholder);
-      console.log(
-        `Typing slowly into placeholder: ${placeholder}: ${value}`
-      );
-      await expect(locator).toBeVisible();
-      await locator.pressSequentially(value, { delay });
-    } catch (e) {
-      console.error(`typeSlowlyByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clear(locator: Locator) {
-    try {
-      await locator.clear();
-    } catch (e) {
-      console.error(`Clear failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async hover(locator: Locator) {
-    try {
-      await locator.hover();
-    } catch (e) {
-      console.error(`Hover failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async hoverByRole(role: string, name: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Hovering role: ${role}, name: ${name}`);
-      await locator.hover();
-    } catch (e) {
-      console.error(`hoverByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async hoverByTestId(testId: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Hovering testId: ${testId}`);
-      await locator.hover();
-    } catch (e) {
-      console.error(`hoverByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async doubleClick(locator: Locator) {
-    try {
-      await locator.dblclick();
-    } catch (e) {
-      console.error(`Double click failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async doubleClickByRole(role: string, name: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Double clicking role: ${role}, name: ${name}`);
-      await locator.dblclick();
-    } catch (e) {
-      console.error(`doubleClickByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async doubleClickByTestId(testId: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Double clicking testId: ${testId}`);
-      await locator.dblclick();
-    } catch (e) {
-      console.error(`doubleClickByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async rightClick(locator: Locator) {
-    try {
-      console.log(`Right clicking element`);
-      await locator.click({ button: "right" });
-    } catch (e) {
-      console.error(`Right click failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async rightClickbyRole(role: string, name: string) {
-    try {
-      console.log(`Right clicking ${name || "element"}`);
-      const locator = this.page.getByRole(role as any, { name });
-      await locator.click({ button: "right" });
-    } catch (e) {
-      console.error(`Right click failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async rightClickbyTestId(testId: string) {
-    try {
-      console.log(`Right clicking ${testId || "element"}`);
-      const locator = this.page.getByTestId(testId);
-      await locator.click({ button: "right" });
-    } catch (e) {
-      console.error(`Right click failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async rightClickbyPlaceholder(placeholder: string) {
-    try {
-      console.log(`Right clicking ${placeholder || "element"}`);
-      const locator = this.page.getByPlaceholder(placeholder);
-      await locator.click({ button: "right" });
-    } catch (e) {
-      console.error(`Right click failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async focus(locator: Locator) {
-    try {
-      await locator.focus();
-    } catch (e) {
-      console.error(`Focus failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async focusByRole(role: string, name: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Focusing role: ${role}, name: ${name}`);
-      await locator.focus();
-    } catch (e) {
-      console.error(`focusByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async blur(locator: Locator) {
-    try {
-      await locator.blur();
-    } catch (e) {
-      console.error(`Blur failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async dragAndDrop(source: Locator, target: Locator) {
-    try {
-      console.log(`Dragging source to target`);
-      await source.dragTo(target);
-    } catch (e) {
-      console.error(`dragAndDrop failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async dragAndDropByTestId(sourceTestId: string, targetTestId: string) {
-    try {
-      console.log(
-        `Dragging testId: ${sourceTestId} to testId: ${targetTestId}`
-      );
-      const source = this.page.getByTestId(sourceTestId);
-      const target = this.page.getByTestId(targetTestId);
-      await source.dragTo(target);
-    } catch (e) {
-      console.error(`dragAndDropByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= CHECKBOX / RADIO =================
   async check(locator: Locator, name?: string) {
     try {
-      console.log(`Checking ${name || "checkbox"}`);
-      await expect(locator).toBeVisible();
+      logger.info(`Checking ${name || locator}`);
       await locator.check();
     } catch (e) {
-      console.error(`Check failed on ${name}: ${e}`);
-      throw e;
-    }
-  }
-
-  async checkByLabel(label: string) {
-    try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Checking label: ${label}`);
-      await expect(locator).toBeVisible();
-      await locator.check();
-    } catch (e) {
-      console.error(`checkByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async checkByTestId(testId: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Checking testId: ${testId}`);
-      await expect(locator).toBeVisible();
-      await locator.check();
-    } catch (e) {
-      console.error(`checkByTestId failed: ${e}`);
+      logger.error(`Check failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
   async uncheck(locator: Locator, name?: string) {
     try {
-      console.log(`Unchecking ${name || "checkbox"}`);
-      await expect(locator).toBeVisible();
+      logger.info(`Unchecking ${name || locator}`);
       await locator.uncheck();
     } catch (e) {
-      console.error(`Uncheck failed on ${name}: ${e}`);
+      logger.error(`Uncheck failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async uncheckByLabel(label: string) {
+  async selectOption(
+    locator: Locator,
+    value: string | string[] | { label?: string; value?: string; index?: number },
+    name?: string
+  ) {
     try {
-      const locator = this.page.getByLabel(label);
-      console.log(`Unchecking label: ${label}`);
-      await expect(locator).toBeVisible();
-      await locator.uncheck();
+      logger.info(`Selecting option on ${name || locator}: ${JSON.stringify(value)}`);
+      await locator.selectOption(value as any);
     } catch (e) {
-      console.error(`uncheckByLabel failed: ${e}`);
+      logger.error(`selectOption failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async uncheckByTestId(testId: string) {
+  async pressKey(locator: Locator, key: string, name?: string) {
     try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Unchecking testId: ${testId}`);
-      await expect(locator).toBeVisible();
-      await locator.uncheck();
-    } catch (e) {
-      console.error(`uncheckByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= DROPDOWN =================
-  async selectByValue(locator: Locator, value: string) {
-    try {
-      await locator.selectOption(value);
-    } catch (e) {
-      console.error(`Select dropdown failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async selectByLabel(locator: Locator, label: string) {
-    try {
-      console.log(`Selecting option by label: ${label}`);
-      await locator.selectOption({ label });
-    } catch (e) {
-      console.error(`selectByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async selectByIndex(locator: Locator, index: number) {
-    try {
-      console.log(`Selecting option by index: ${index}`);
-      await locator.selectOption({ index });
-    } catch (e) {
-      console.error(`selectByIndex failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async selectByTestId(testId: string, value: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Selecting testId: ${testId} with value: ${value}`);
-      await locator.selectOption(value);
-    } catch (e) {
-      console.error(`selectByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= KEYBOARD =================
-  async pressKey(key: string) {
-    try {
-      await this.page.keyboard.press(key);
-    } catch (e) {
-      console.error(`Key press failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async pressKeyOnLocator(locator: Locator, key: string) {
-    try {
-      console.log(`Pressing key: ${key} on locator`);
+      logger.info(`Pressing key "${key}" on ${name || locator}`);
       await locator.press(key);
     } catch (e) {
-      console.error(`pressKeyOnLocator failed: ${e}`);
+      logger.error(`pressKey failed on ${name || locator}: ${e}`);
       throw e;
     }
   }
 
-  async pressKeyOnRole(role: string, name: string, key: string) {
+  async dragAndDrop(source: Locator, target: Locator) {
     try {
-      const locator = this.page.getByRole(role as any, { name });
-      console.log(`Pressing key: ${key} on role: ${role}, name: ${name}`);
-      await locator.press(key);
+      logger.info(`Dragging source to target`);
+      await source.dragTo(target);
     } catch (e) {
-      console.error(`pressKeyOnRole failed: ${e}`);
+      logger.error(`dragAndDrop failed: ${e}`);
       throw e;
     }
   }
 
-  async pressKeyOnTestId(testId: string, key: string) {
+  async uploadFile(locator: Locator, filePath: string | string[]) {
     try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Pressing key: ${key} on testId: ${testId}`);
-      await locator.press(key);
-    } catch (e) {
-      console.error(`pressKeyOnTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= FILE UPLOAD =================
-  async uploadFile(locator: Locator, filePath: string) {
-    try {
+      logger.info(`Uploading file(s) to ${locator}`);
       await locator.setInputFiles(filePath);
     } catch (e) {
-      console.error(`File upload failed: ${e}`);
+      logger.error(`uploadFile failed: ${e}`);
       throw e;
     }
   }
 
-  async uploadFileByTestId(testId: string, filePath: string) {
-    try {
-      const locator = this.page.getByTestId(testId);
-      console.log(`Uploading file to testId: ${testId}`);
-      await locator.setInputFiles(filePath);
-    } catch (e) {
-      console.error(`uploadFileByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async uploadMultipleFiles(locator: Locator, filePaths: string[]) {
-    try {
-      console.log(`Uploading ${filePaths.length} files`);
-      await locator.setInputFiles(filePaths);
-    } catch (e) {
-      console.error(`uploadMultipleFiles failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clearFileUpload(locator: Locator) {
-    try {
-      await locator.setInputFiles([]);
-    } catch (e) {
-      console.error(`clearFileUpload failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= DOWNLOAD =================
   async downloadFile(locator: Locator): Promise<Download> {
     try {
-      console.log(`Initiating file download`);
+      logger.info(`Initiating file download`);
       const [download] = await Promise.all([
-        this.page.waitForEvent("download"),
+        this.page.waitForEvent('download'),
         locator.click(),
       ]);
       return download;
     } catch (e) {
-      console.error(`downloadFile failed: ${e}`);
+      logger.error(`downloadFile failed: ${e}`);
       throw e;
     }
   }
 
-  async downloadFileByRole(role: string, name: string): Promise<Download> {
+  async scrollIntoView(locator: Locator) {
     try {
-      console.log(`Initiating download via role: ${role}, name: ${name}`);
-      const locator = this.page.getByRole(role as any, { name });
-      const [download] = await Promise.all([
-        this.page.waitForEvent("download"),
-        locator.click(),
-      ]);
-      return download;
+      await locator.scrollIntoViewIfNeeded();
     } catch (e) {
-      console.error(`downloadFileByRole failed: ${e}`);
+      logger.error(`scrollIntoView failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async takeScreenshot(path: string, locator?: Locator, fullPage = false) {
+    try {
+      if (locator) {
+        await locator.screenshot({ path });
+      } else {
+        await this.page.screenshot({ path, fullPage });
+      }
+    } catch (e) {
+      logger.error(`takeScreenshot failed: ${e}`);
       throw e;
     }
   }
@@ -692,202 +281,84 @@ export class BasePage {
   // ================= WAITS =================
   async waitForVisible(locator: Locator) {
     try {
-      await locator.waitFor({ state: "visible" });
+      await locator.waitFor({ state: 'visible' });
     } catch (e) {
-      console.error(`Wait for visible failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForVisibleByRole(role: string, name: string) {
-    try {
-      await this.page
-        .getByRole(role as any, { name })
-        .waitFor({ state: "visible" });
-    } catch (e) {
-      console.error(`waitForVisibleByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForVisibleByTestId(testId: string) {
-    try {
-      await this.page.getByTestId(testId).waitFor({ state: "visible" });
-    } catch (e) {
-      console.error(`waitForVisibleByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForVisibleByPlaceholder(placeholder: string) {
-    try {
-      await this.page
-        .getByPlaceholder(placeholder)
-        .waitFor({ state: "visible" });
-    } catch (e) {
-      console.error(`waitForVisibleByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForVisibleByLabel(label: string) {
-    try {
-      await this.page.getByLabel(label).waitFor({ state: "visible" });
-    } catch (e) {
-      console.error(`waitForVisibleByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForVisibleByAltText(altText: string) {
-    try {
-      await this.page.getByAltText(altText).waitFor({ state: "visible" });
-    } catch (e) {
-      console.error(`waitForVisibleByAltText failed: ${e}`);
+      logger.error(`waitForVisible failed: ${e}`);
       throw e;
     }
   }
 
   async waitForHidden(locator: Locator) {
     try {
-      await locator.waitFor({ state: "hidden" });
+      await locator.waitFor({ state: 'hidden' });
     } catch (e) {
-      console.error(`Wait for hidden failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForHiddenByRole(role: string, name: string) {
-    try {
-      await this.page
-        .getByRole(role as any, { name })
-        .waitFor({ state: "hidden" });
-    } catch (e) {
-      console.error(`waitForHiddenByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForHiddenByTestId(testId: string) {
-    try {
-      await this.page.getByTestId(testId).waitFor({ state: "hidden" });
-    } catch (e) {
-      console.error(`waitForHiddenByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForHiddenByPlaceholder(placeholder: string) {
-    try {
-      await this.page
-        .getByPlaceholder(placeholder)
-        .waitFor({ state: "hidden" });
-    } catch (e) {
-      console.error(`waitForHiddenByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForHiddenByLabel(label: string) {
-    try {
-      await this.page.getByLabel(label).waitFor({ state: "hidden" });
-    } catch (e) {
-      console.error(`waitForHiddenByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForHiddenByAltText(altText: string) {
-    try {
-      await this.page.getByAltText(altText).waitFor({ state: "hidden" });
-    } catch (e) {
-      console.error(`waitForHiddenByAltText failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForURL(url: string) {
-    try {
-      await this.page.waitForURL(url);
-    } catch (e) {
-      console.error(`Wait for URL failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForLoad() {
-    try {
-      await this.page.waitForLoadState("load");
-    } catch (e) {
-      console.error(`Wait for load failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForNetworkIdle() {
-    try {
-      await this.page.waitForLoadState("networkidle");
-    } catch (e) {
-      console.error(`Wait for network idle failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForDomContentLoaded() {
-    try {
-      await this.page.waitForLoadState("domcontentloaded");
-    } catch (e) {
-      console.error(`Wait for DOM content loaded failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForSelector(selector: string, timeout = 30000) {
-    try {
-      console.log(`Waiting for selector: ${selector}`);
-      await this.page.waitForSelector(selector, { timeout });
-    } catch (e) {
-      console.error(`waitForSelector failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForTimeout(ms: number) {
-    try {
-      console.log(`Waiting for ${ms}ms`);
-      await this.page.waitForTimeout(ms);
-    } catch (e) {
-      console.error(`waitForTimeout failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForResponse(urlOrPattern: string | RegExp) {
-    try {
-      console.log(`Waiting for response: ${urlOrPattern}`);
-      return await this.page.waitForResponse(urlOrPattern);
-    } catch (e) {
-      console.error(`waitForResponse failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async waitForRequest(urlOrPattern: string | RegExp) {
-    try {
-      console.log(`Waiting for request: ${urlOrPattern}`);
-      return await this.page.waitForRequest(urlOrPattern);
-    } catch (e) {
-      console.error(`waitForRequest failed: ${e}`);
+      logger.error(`waitForHidden failed: ${e}`);
       throw e;
     }
   }
 
   async waitForCount(locator: Locator, count: number, timeout = 30000) {
     try {
-      console.log(`Waiting for count: ${count}`);
       await expect(locator).toHaveCount(count, { timeout });
     } catch (e) {
-      console.error(`waitForCount failed: ${e}`);
+      logger.error(`waitForCount failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForURL(url: string | RegExp) {
+    try {
+      await this.page.waitForURL(url);
+    } catch (e) {
+      logger.error(`waitForURL failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForLoad() {
+    try {
+      await this.page.waitForLoadState('load');
+    } catch (e) {
+      logger.error(`waitForLoad failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForNetworkIdle() {
+    try {
+      await this.page.waitForLoadState('networkidle');
+    } catch (e) {
+      logger.error(`waitForNetworkIdle failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForTimeout(ms: number) {
+    try {
+      logger.info(`Waiting for ${ms}ms`);
+      await this.page.waitForTimeout(ms);
+    } catch (e) {
+      logger.error(`waitForTimeout failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForResponse(urlOrPattern: string | RegExp) {
+    try {
+      logger.info(`Waiting for response: ${urlOrPattern}`);
+      return await this.page.waitForResponse(urlOrPattern);
+    } catch (e) {
+      logger.error(`waitForResponse failed: ${e}`);
+      throw e;
+    }
+  }
+
+  async waitForRequest(urlOrPattern: string | RegExp) {
+    try {
+      logger.info(`Waiting for request: ${urlOrPattern}`);
+      return await this.page.waitForRequest(urlOrPattern);
+    } catch (e) {
+      logger.error(`waitForRequest failed: ${e}`);
       throw e;
     }
   }
@@ -896,31 +367,9 @@ export class BasePage {
   async getText(locator: Locator): Promise<string> {
     try {
       await expect(locator).toBeVisible();
-      return (await locator.textContent()) || "";
+      return (await locator.textContent()) || '';
     } catch (e) {
-      console.error(`Get text failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getTextByRole(role: string, name: string): Promise<string> {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      await expect(locator).toBeVisible();
-      return (await locator.textContent()) || "";
-    } catch (e) {
-      console.error(`getTextByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getTextByTestId(testId: string): Promise<string> {
-    try {
-      const locator = this.page.getByTestId(testId);
-      await expect(locator).toBeVisible();
-      return (await locator.textContent()) || "";
-    } catch (e) {
-      console.error(`getTextByTestId failed: ${e}`);
+      logger.error(`getText failed: ${e}`);
       throw e;
     }
   }
@@ -929,26 +378,7 @@ export class BasePage {
     try {
       return await locator.allTextContents();
     } catch (e) {
-      console.error(`getAllTexts failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getAllTextsByRole(role: string, name: string): Promise<string[]> {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      return await locator.allTextContents();
-    } catch (e) {
-      console.error(`getAllTextsByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getAllTextsByTestId(testId: string): Promise<string[]> {
-    try {
-      return await this.page.getByTestId(testId).allTextContents();
-    } catch (e) {
-      console.error(`getAllTextsByTestId failed: ${e}`);
+      logger.error(`getAllTexts failed: ${e}`);
       throw e;
     }
   }
@@ -957,34 +387,7 @@ export class BasePage {
     try {
       return await locator.inputValue();
     } catch (e) {
-      console.error(`getInputValue failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getInputValueByLabel(label: string): Promise<string> {
-    try {
-      return await this.page.getByLabel(label).inputValue();
-    } catch (e) {
-      console.error(`getInputValueByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getInputValueByPlaceholder(placeholder: string): Promise<string> {
-    try {
-      return await this.page.getByPlaceholder(placeholder).inputValue();
-    } catch (e) {
-      console.error(`getInputValueByPlaceholder failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getInputValueByTestId(testId: string): Promise<string> {
-    try {
-      return await this.page.getByTestId(testId).inputValue();
-    } catch (e) {
-      console.error(`getInputValueByTestId failed: ${e}`);
+      logger.error(`getInputValue failed: ${e}`);
       throw e;
     }
   }
@@ -993,37 +396,7 @@ export class BasePage {
     try {
       return await locator.getAttribute(attr);
     } catch (e) {
-      console.error(`Get attribute failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getAttributeByTestId(
-    testId: string,
-    attr: string
-  ): Promise<string | null> {
-    try {
-      return await this.page.getByTestId(testId).getAttribute(attr);
-    } catch (e) {
-      console.error(`getAttributeByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getTitle(): Promise<string> {
-    try {
-      return await this.page.title();
-    } catch (e) {
-      console.error(`Get title failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getCurrentURL(): Promise<string> {
-    try {
-      return this.page.url();
-    } catch (e) {
-      console.error(`getCurrentURL failed: ${e}`);
+      logger.error(`getAttribute failed: ${e}`);
       throw e;
     }
   }
@@ -1032,53 +405,35 @@ export class BasePage {
     try {
       return await locator.count();
     } catch (e) {
-      console.error(`getCount failed: ${e}`);
+      logger.error(`getCount failed: ${e}`);
       throw e;
     }
   }
 
-  async getCountByRole(role: string, name: string): Promise<number> {
+  async getTitle(): Promise<string> {
     try {
-      return await this.page.getByRole(role as any, { name }).count();
+      return await this.page.title();
     } catch (e) {
-      console.error(`getCountByRole failed: ${e}`);
+      logger.error(`getTitle failed: ${e}`);
       throw e;
     }
   }
 
-  async getCountByTestId(testId: string): Promise<number> {
+  async getCurrentURL(): Promise<string> {
     try {
-      return await this.page.getByTestId(testId).count();
+      return this.page.url();
     } catch (e) {
-      console.error(`getCountByTestId failed: ${e}`);
+      logger.error(`getCurrentURL failed: ${e}`);
       throw e;
     }
   }
 
-  // ================= BOOLEAN STATE CHECKS =================
+  // ================= STATE CHECKS =================
   async isVisible(locator: Locator): Promise<boolean> {
     try {
       return await locator.isVisible();
     } catch (e) {
-      console.error(`isVisible failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isVisibleByRole(role: string, name: string): Promise<boolean> {
-    try {
-      return await this.page.getByRole(role as any, { name }).isVisible();
-    } catch (e) {
-      console.error(`isVisibleByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isVisibleByTestId(testId: string): Promise<boolean> {
-    try {
-      return await this.page.getByTestId(testId).isVisible();
-    } catch (e) {
-      console.error(`isVisibleByTestId failed: ${e}`);
+      logger.error(`isVisible failed: ${e}`);
       throw e;
     }
   }
@@ -1087,52 +442,7 @@ export class BasePage {
     try {
       return await locator.isEnabled();
     } catch (e) {
-      console.error(`isEnabled failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isEnabledByRole(role: string, name: string): Promise<boolean> {
-    try {
-      return await this.page.getByRole(role as any, { name }).isEnabled();
-    } catch (e) {
-      console.error(`isEnabledByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isEnabledByTestId(testId: string): Promise<boolean> {
-    try {
-      return await this.page.getByTestId(testId).isEnabled();
-    } catch (e) {
-      console.error(`isEnabledByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isChecked(locator: Locator): Promise<boolean> {
-    try {
-      return await locator.isChecked();
-    } catch (e) {
-      console.error(`isChecked failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isCheckedByLabel(label: string): Promise<boolean> {
-    try {
-      return await this.page.getByLabel(label).isChecked();
-    } catch (e) {
-      console.error(`isCheckedByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isCheckedByTestId(testId: string): Promise<boolean> {
-    try {
-      return await this.page.getByTestId(testId).isChecked();
-    } catch (e) {
-      console.error(`isCheckedByTestId failed: ${e}`);
+      logger.error(`isEnabled failed: ${e}`);
       throw e;
     }
   }
@@ -1141,109 +451,26 @@ export class BasePage {
     try {
       return await locator.isDisabled();
     } catch (e) {
-      console.error(`isDisabled failed: ${e}`);
+      logger.error(`isDisabled failed: ${e}`);
       throw e;
     }
   }
 
-  async isDisabledByRole(role: string, name: string): Promise<boolean> {
+  async isChecked(locator: Locator): Promise<boolean> {
     try {
-      return await this.page.getByRole(role as any, { name }).isDisabled();
+      return await locator.isChecked();
     } catch (e) {
-      console.error(`isDisabledByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async isDisabledByTestId(testId: string): Promise<boolean> {
-    try {
-      return await this.page.getByTestId(testId).isDisabled();
-    } catch (e) {
-      console.error(`isDisabledByTestId failed: ${e}`);
+      logger.error(`isChecked failed: ${e}`);
       throw e;
     }
   }
 
   // ================= ASSERTIONS =================
-  async assertText(locator: Locator, expected: string) {
-    try {
-      await expect(locator).toHaveText(expected);
-    } catch (e) {
-      console.error(`Assertion failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertTextByRole(role: string, name: string, expected: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      await expect(locator).toHaveText(expected);
-    } catch (e) {
-      console.error(`assertTextByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertTextByTestId(testId: string, expected: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toHaveText(expected);
-    } catch (e) {
-      console.error(`assertTextByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertContainsText(locator: Locator, expected: string) {
-    try {
-      await expect(locator).toContainText(expected);
-    } catch (e) {
-      console.error(`assertContainsText failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertContainsTextByRole(role: string, name: string, expected: string) {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      await expect(locator).toContainText(expected);
-    } catch (e) {
-      console.error(`assertContainsTextByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertContainsTextByTestId(testId: string, expected: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toContainText(expected);
-    } catch (e) {
-      console.error(`assertContainsTextByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
   async assertVisible(locator: Locator) {
     try {
       await expect(locator).toBeVisible();
     } catch (e) {
-      console.error(`Visibility assertion failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertVisibleByRole(role: string, name: string) {
-    try {
-      await expect(this.page.getByRole(role as any, { name })).toBeVisible();
-    } catch (e) {
-      console.error(`assertVisibleByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertVisibleByTestId(testId: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toBeVisible();
-    } catch (e) {
-      console.error(`assertVisibleByTestId failed: ${e}`);
+      logger.error(`assertVisible failed: ${e}`);
       throw e;
     }
   }
@@ -1252,27 +479,25 @@ export class BasePage {
     try {
       await expect(locator).not.toBeVisible();
     } catch (e) {
-      console.error(`assertNotVisible failed: ${e}`);
+      logger.error(`assertNotVisible failed: ${e}`);
       throw e;
     }
   }
 
-  async assertNotVisibleByRole(role: string, name: string) {
+  async assertText(locator: Locator, expected: string | RegExp) {
     try {
-      await expect(
-        this.page.getByRole(role as any, { name })
-      ).not.toBeVisible();
+      await expect(locator).toHaveText(expected);
     } catch (e) {
-      console.error(`assertNotVisibleByRole failed: ${e}`);
+      logger.error(`assertText failed: ${e}`);
       throw e;
     }
   }
 
-  async assertNotVisibleByTestId(testId: string) {
+  async assertContainsText(locator: Locator, expected: string | RegExp) {
     try {
-      await expect(this.page.getByTestId(testId)).not.toBeVisible();
+      await expect(locator).toContainText(expected);
     } catch (e) {
-      console.error(`assertNotVisibleByTestId failed: ${e}`);
+      logger.error(`assertContainsText failed: ${e}`);
       throw e;
     }
   }
@@ -1281,25 +506,7 @@ export class BasePage {
     try {
       await expect(locator).toBeEnabled();
     } catch (e) {
-      console.error(`assertEnabled failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertEnabledByRole(role: string, name: string) {
-    try {
-      await expect(this.page.getByRole(role as any, { name })).toBeEnabled();
-    } catch (e) {
-      console.error(`assertEnabledByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertEnabledByTestId(testId: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toBeEnabled();
-    } catch (e) {
-      console.error(`assertEnabledByTestId failed: ${e}`);
+      logger.error(`assertEnabled failed: ${e}`);
       throw e;
     }
   }
@@ -1308,25 +515,7 @@ export class BasePage {
     try {
       await expect(locator).toBeDisabled();
     } catch (e) {
-      console.error(`assertDisabled failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertDisabledByRole(role: string, name: string) {
-    try {
-      await expect(this.page.getByRole(role as any, { name })).toBeDisabled();
-    } catch (e) {
-      console.error(`assertDisabledByRole failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertDisabledByTestId(testId: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toBeDisabled();
-    } catch (e) {
-      console.error(`assertDisabledByTestId failed: ${e}`);
+      logger.error(`assertDisabled failed: ${e}`);
       throw e;
     }
   }
@@ -1335,25 +524,7 @@ export class BasePage {
     try {
       await expect(locator).toBeChecked();
     } catch (e) {
-      console.error(`assertChecked failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertCheckedByLabel(label: string) {
-    try {
-      await expect(this.page.getByLabel(label)).toBeChecked();
-    } catch (e) {
-      console.error(`assertCheckedByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertCheckedByTestId(testId: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toBeChecked();
-    } catch (e) {
-      console.error(`assertCheckedByTestId failed: ${e}`);
+      logger.error(`assertChecked failed: ${e}`);
       throw e;
     }
   }
@@ -1362,81 +533,25 @@ export class BasePage {
     try {
       await expect(locator).not.toBeChecked();
     } catch (e) {
-      console.error(`assertUnchecked failed: ${e}`);
+      logger.error(`assertUnchecked failed: ${e}`);
       throw e;
     }
   }
 
-  async assertUncheckedByLabel(label: string) {
-    try {
-      await expect(this.page.getByLabel(label)).not.toBeChecked();
-    } catch (e) {
-      console.error(`assertUncheckedByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertUncheckedByTestId(testId: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).not.toBeChecked();
-    } catch (e) {
-      console.error(`assertUncheckedByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertInputValue(locator: Locator, expected: string) {
+  async assertInputValue(locator: Locator, expected: string | RegExp) {
     try {
       await expect(locator).toHaveValue(expected);
     } catch (e) {
-      console.error(`assertInputValue failed: ${e}`);
+      logger.error(`assertInputValue failed: ${e}`);
       throw e;
     }
   }
 
-  async assertInputValueByLabel(label: string, expected: string) {
-    try {
-      await expect(this.page.getByLabel(label)).toHaveValue(expected);
-    } catch (e) {
-      console.error(`assertInputValueByLabel failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertInputValueByTestId(testId: string, expected: string) {
-    try {
-      await expect(this.page.getByTestId(testId)).toHaveValue(expected);
-    } catch (e) {
-      console.error(`assertInputValueByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertAttributeValue(
-    locator: Locator,
-    attr: string,
-    expected: string
-  ) {
+  async assertAttributeValue(locator: Locator, attr: string, expected: string | RegExp) {
     try {
       await expect(locator).toHaveAttribute(attr, expected);
     } catch (e) {
-      console.error(`assertAttributeValue failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertAttributeValueByTestId(
-    testId: string,
-    attr: string,
-    expected: string
-  ) {
-    try {
-      await expect(this.page.getByTestId(testId)).toHaveAttribute(
-        attr,
-        expected
-      );
-    } catch (e) {
-      console.error(`assertAttributeValueByTestId failed: ${e}`);
+      logger.error(`assertAttributeValue failed: ${e}`);
       throw e;
     }
   }
@@ -1445,52 +560,25 @@ export class BasePage {
     try {
       await expect(locator).toHaveCount(expected);
     } catch (e) {
-      console.error(`assertCount failed: ${e}`);
+      logger.error(`assertCount failed: ${e}`);
       throw e;
     }
   }
 
-  async assertCountByTestId(testId: string, expected: number) {
-    try {
-      await expect(this.page.getByTestId(testId)).toHaveCount(expected);
-    } catch (e) {
-      console.error(`assertCountByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertURL(expected: string) {
+  async assertURL(expected: string | RegExp) {
     try {
       await expect(this.page).toHaveURL(expected);
     } catch (e) {
-      console.error(`URL assertion failed: ${e}`);
+      logger.error(`assertURL failed: ${e}`);
       throw e;
     }
   }
 
-  async assertURLContains(partial: string) {
-    try {
-      await expect(this.page).toHaveURL(new RegExp(partial));
-    } catch (e) {
-      console.error(`assertURLContains failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertTitle(expected: string) {
+  async assertTitle(expected: string | RegExp) {
     try {
       await expect(this.page).toHaveTitle(expected);
     } catch (e) {
-      console.error(`assertTitle failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async assertTitleContains(partial: string) {
-    try {
-      await expect(this.page).toHaveTitle(new RegExp(partial));
-    } catch (e) {
-      console.error(`assertTitleContains failed: ${e}`);
+      logger.error(`assertTitle failed: ${e}`);
       throw e;
     }
   }
@@ -1502,7 +590,7 @@ export class BasePage {
       if (!frame) throw new Error(`Frame with name "${name}" not found`);
       return frame;
     } catch (e) {
-      console.error(`getFrameByName failed: ${e}`);
+      logger.error(`getFrameByName failed: ${e}`);
       throw e;
     }
   }
@@ -1513,181 +601,72 @@ export class BasePage {
       if (!frame) throw new Error(`Frame with URL "${url}" not found`);
       return frame;
     } catch (e) {
-      console.error(`getFrameByURL failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickInFrame(frame: Frame, selector: string) {
-    try {
-      console.log(`Clicking selector in frame: ${selector}`);
-      await frame.click(selector);
-    } catch (e) {
-      console.error(`clickInFrame failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async fillInFrame(frame: Frame, selector: string, value: string) {
-    try {
-      console.log(`Filling selector in frame: ${selector} with ${value}`);
-      await frame.fill(selector, value);
-    } catch (e) {
-      console.error(`fillInFrame failed: ${e}`);
+      logger.error(`getFrameByURL failed: ${e}`);
       throw e;
     }
   }
 
   // ================= DIALOG HANDLING =================
-  async acceptDialog() {
+  async handleDialog(action: 'accept' | 'dismiss', promptText?: string) {
     try {
-      console.log(`Setting up dialog accept handler`);
-      this.page.once("dialog", async (dialog) => {
-        console.log(`Accepting dialog: ${dialog.type()} - ${dialog.message()}`);
-        await dialog.accept();
-      });
-    } catch (e) {
-      console.error(`acceptDialog failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async dismissDialog() {
-    try {
-      console.log(`Setting up dialog dismiss handler`);
-      this.page.once("dialog", async (dialog) => {
-        console.log(
-          `Dismissing dialog: ${dialog.type()} - ${dialog.message()}`
-        );
-        await dialog.dismiss();
-      });
-    } catch (e) {
-      console.error(`dismissDialog failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async acceptDialogWithText(promptText: string) {
-    try {
-      console.log(`Setting up dialog accept handler with text: ${promptText}`);
-      this.page.once("dialog", async (dialog) => {
-        console.log(`Accepting dialog with text: ${promptText}`);
-        await dialog.accept(promptText);
-      });
-    } catch (e) {
-      console.error(`acceptDialogWithText failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async handleDialogAndGetMessage(): Promise<string> {
-    return new Promise((resolve, reject) => {
-      this.page.once("dialog", async (dialog) => {
-        try {
-          const message = dialog.message();
-          console.log(`Dialog message: ${message}`);
+      this.page.once('dialog', async (dialog) => {
+        logger.info(`${action === 'accept' ? 'Accepting' : 'Dismissing'} dialog: ${dialog.message()}`);
+        if (action === 'accept') {
+          await dialog.accept(promptText);
+        } else {
           await dialog.dismiss();
-          resolve(message);
-        } catch (e) {
-          reject(e);
         }
       });
-    });
+    } catch (e) {
+      logger.error(`handleDialog failed: ${e}`);
+      throw e;
+    }
   }
 
-  // ================= NEW TAB / WINDOW HANDLING =================
+  // ================= NEW TAB / WINDOW =================
   async clickAndWaitForNewPage(locator: Locator): Promise<Page> {
     try {
-      console.log(`Clicking element and waiting for new page`);
       const [newPage] = await Promise.all([
-        this.page.context().waitForEvent("page"),
+        this.page.context().waitForEvent('page'),
         locator.click(),
       ]);
       await newPage.waitForLoadState();
       return newPage;
     } catch (e) {
-      console.error(`clickAndWaitForNewPage failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async clickByRoleAndWaitForNewPage(
-    role: string,
-    name: string
-  ): Promise<Page> {
-    try {
-      const locator = this.page.getByRole(role as any, { name });
-      const [newPage] = await Promise.all([
-        this.page.context().waitForEvent("page"),
-        locator.click(),
-      ]);
-      await newPage.waitForLoadState();
-      return newPage;
-    } catch (e) {
-      console.error(`clickByRoleAndWaitForNewPage failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async getAllOpenPages(): Promise<Page[]> {
-    try {
-      return this.page.context().pages();
-    } catch (e) {
-      console.error(`getAllOpenPages failed: ${e}`);
+      logger.error(`clickAndWaitForNewPage failed: ${e}`);
       throw e;
     }
   }
 
   // ================= NETWORK INTERCEPT =================
-  async interceptRequest(
-    urlPattern: string | RegExp,
-    handler: (route: any) => Promise<void>
-  ) {
+  async interceptRequest(urlPattern: string | RegExp, handler: (route: any) => Promise<void>) {
     try {
-      console.log(`Intercepting requests matching: ${urlPattern}`);
+      logger.info(`Intercepting requests matching: ${urlPattern}`);
       await this.page.route(urlPattern, handler);
     } catch (e) {
-      console.error(`interceptRequest failed: ${e}`);
+      logger.error(`interceptRequest failed: ${e}`);
       throw e;
     }
   }
 
-  async mockResponse(
-    urlPattern: string | RegExp,
-    body: object,
-    status = 200
-  ) {
+  async mockResponse(urlPattern: string | RegExp, body: object, status = 200) {
     try {
-      console.log(`Mocking response for: ${urlPattern}`);
+      logger.info(`Mocking response for: ${urlPattern}`);
       await this.page.route(urlPattern, (route) =>
-        route.fulfill({
-          status,
-          contentType: "application/json",
-          body: JSON.stringify(body),
-        })
+        route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
       );
     } catch (e) {
-      console.error(`mockResponse failed: ${e}`);
+      logger.error(`mockResponse failed: ${e}`);
       throw e;
     }
   }
 
   async abortRequest(urlPattern: string | RegExp) {
     try {
-      console.log(`Aborting requests matching: ${urlPattern}`);
+      logger.info(`Aborting requests matching: ${urlPattern}`);
       await this.page.route(urlPattern, (route) => route.abort());
     } catch (e) {
-      console.error(`abortRequest failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async removeInterceptor(urlPattern: string | RegExp) {
-    try {
-      console.log(`Removing route interceptor for: ${urlPattern}`);
-      await this.page.unroute(urlPattern);
-    } catch (e) {
-      console.error(`removeInterceptor failed: ${e}`);
+      logger.error(`abortRequest failed: ${e}`);
       throw e;
     }
   }
@@ -1695,10 +674,10 @@ export class BasePage {
   // ================= CLIPBOARD =================
   async copyToClipboard(text: string) {
     try {
-      console.log(`Copying to clipboard: ${text}`);
+      logger.info(`Copying to clipboard: ${text}`);
       await this.page.evaluate((t) => navigator.clipboard.writeText(t), text);
     } catch (e) {
-      console.error(`copyToClipboard failed: ${e}`);
+      logger.error(`copyToClipboard failed: ${e}`);
       throw e;
     }
   }
@@ -1707,7 +686,7 @@ export class BasePage {
     try {
       return await this.page.evaluate(() => navigator.clipboard.readText());
     } catch (e) {
-      console.error(`getClipboardText failed: ${e}`);
+      logger.error(`getClipboardText failed: ${e}`);
       throw e;
     }
   }
@@ -1715,10 +694,10 @@ export class BasePage {
   // ================= JAVASCRIPT EXECUTION =================
   async executeScript<T>(script: string | ((...args: any[]) => T), ...args: any[]): Promise<T> {
     try {
-      console.log(`Executing script`);
+      logger.info(`Executing script`);
       return await this.page.evaluate(script as any, ...args);
     } catch (e) {
-      console.error(`executeScript failed: ${e}`);
+      logger.error(`executeScript failed: ${e}`);
       throw e;
     }
   }
@@ -1729,85 +708,39 @@ export class BasePage {
     ...args: any[]
   ): Promise<T> {
     try {
-      console.log(`Executing script on locator`);
+      logger.info(`Executing script on locator`);
       return await locator.evaluate(script, ...args);
     } catch (e) {
-      console.error(`executeScriptOnLocator failed: ${e}`);
-      throw e;
-    }
-  }
-
-  // ================= SCREENSHOT =================
-  async takeScreenshot(path: string) {
-    try {
-      await this.page.screenshot({ path });
-    } catch (e) {
-      console.error(`Screenshot failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async takeFullPageScreenshot(path: string) {
-    try {
-      await this.page.screenshot({ path, fullPage: true });
-    } catch (e) {
-      console.error(`takeFullPageScreenshot failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async takeLocatorScreenshot(locator: Locator, path: string) {
-    try {
-      await locator.screenshot({ path });
-    } catch (e) {
-      console.error(`takeLocatorScreenshot failed: ${e}`);
+      logger.error(`executeScriptOnLocator failed: ${e}`);
       throw e;
     }
   }
 
   // ================= SCROLL =================
-  async scrollIntoView(locator: Locator) {
-    try {
-      await locator.scrollIntoViewIfNeeded();
-    } catch (e) {
-      console.error(`Scroll failed: ${e}`);
-      throw e;
-    }
-  }
-
-  async scrollIntoViewByTestId(testId: string) {
-    try {
-      await this.page.getByTestId(testId).scrollIntoViewIfNeeded();
-    } catch (e) {
-      console.error(`scrollIntoViewByTestId failed: ${e}`);
-      throw e;
-    }
-  }
-
   async scrollToTop() {
     try {
-      await this.page.keyboard.press("Control+Home");
+      await this.page.keyboard.press('Control+Home');
     } catch (e) {
-      console.error(`scrollToTop failed: ${e}`);
+      logger.error(`scrollToTop failed: ${e}`);
       throw e;
     }
   }
 
   async scrollToBottom() {
     try {
-      await this.page.keyboard.press("Control+End");
+      await this.page.keyboard.press('Control+End');
     } catch (e) {
-      console.error(`scrollToBottom failed: ${e}`);
+      logger.error(`scrollToBottom failed: ${e}`);
       throw e;
     }
   }
 
   async scrollByPixels(x: number, y: number) {
     try {
-      console.log(`Scrolling by x: ${x}, y: ${y}`);
+      logger.info(`Scrolling by x: ${x}, y: ${y}`);
       await this.page.mouse.wheel(x, y);
     } catch (e) {
-      console.error(`scrollByPixels failed: ${e}`);
+      logger.error(`scrollByPixels failed: ${e}`);
       throw e;
     }
   }

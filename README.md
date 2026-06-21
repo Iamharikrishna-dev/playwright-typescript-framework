@@ -12,7 +12,8 @@ A scalable and maintainable **Playwright + TypeScript** automation framework fol
 - Allure Report
 - HTML Report
 - Page Object Model (POM)
-- Playwright Fixtures
+- Per-module Playwright Fixtures
+- dotenv (multi-environment config)
 
 ---
 
@@ -21,20 +22,29 @@ A scalable and maintainable **Playwright + TypeScript** automation framework fol
 ```text
 playwright-typescript-framework
 │
+├── env/
+│   ├── .env.dev              # config for ENV=dev 
+│   └── .env.qa                # config for ENV=qa
+│
 ├── node_modules/
 │
 ├── reports/
 │
 ├── src/
 │   ├── fixtures/
+│   │   ├── login.fixture.ts       # fixture for the Login module only
+│   │   └── index.ts               # merges module fixtures for specs that need more than one
 │   ├── pages/
+│   │   └── LoginPage.ts
 │   └── utils/
+│       └── base_pages.ts          # one action method per behaviour, driven by Locator
 │
 ├── test-results/
 │
 ├── tests/
-│   └── sample.spec.ts
+│   └── login.spec.ts
 │
+├── .gitignore
 ├── package.json
 ├── package-lock.json
 ├── playwright.config.ts
@@ -72,36 +82,60 @@ npx playwright install
 
 ---
 
+# 🌐 Environment Configuration
+
+Config lives in **one file per environment** under `env/`, not a single `.env` at the root:
+
+```text
+env/.env.dev
+env/.env.qa
+```
+
+Each file holds whatever that environment needs, e.g.:
+
+```env
+ENV=dev
+BASE_URL=https://www.saucedemo.com/
+APP_USERNAME=standard_user
+APP_PASSWORD=secret_sauce
+```
+
+`playwright.config.ts` reads the `ENV` variable (defaults to `dev`) and loads the matching file with `dotenv` before the config is built:
+
+```ts
+const environment = process.env.ENV || 'dev';
+dotenv.config({ path: path.resolve(__dirname, `env/.env.${environment}`) });
+```
+
+To add a new environment (e.g. `staging`), just drop in `env/.env.staging` and run with `ENV=staging`.
+
+---
+
 # ▶️ Execute Tests
 
-Run all tests
+All scripts live in `package.json` (uses `cross-env` so they work on macOS/Linux/Windows alike):
 
 ```bash
-npm test
+npm test            # ENV=dev, all tests
+npm run test:dev    # explicit dev run
+npm run test:qa     # ENV=qa run
+npm run test:headed # headed browser, dev env
+npm run test:debug  # Playwright inspector, dev env
+npm run test:ui     # Playwright UI mode, dev env
+npm run test:chromium # chromium project only, dev env
 ```
 
-or
+Run a specific spec or test, same as any Playwright project:
 
 ```bash
-npx playwright test
+npx playwright test tests/login.spec.ts
+npx playwright test -g "shows an error for invalid credentials"
 ```
 
-Run in headed mode
+Just list discovered tests without running them:
 
 ```bash
-npx playwright test --headed
-```
-
-Run Chromium
-
-```bash
-npx playwright test --project=chromium
-```
-
-Run a specific test
-
-```bash
-npx playwright test tests/sample.spec.ts
+npx playwright test --list
 ```
 
 ---
@@ -110,69 +144,42 @@ npx playwright test tests/sample.spec.ts
 
 ## HTML Report
 
-Reports are generated automatically.
-
-Open the report
-
 ```bash
-npx playwright show-report
+npm run report
 ```
-
----
 
 ## Allure Report
 
-Install Allure CLI (One Time)
+Install Allure CLI (one time)
 
-### macOS
-
+**macOS**
 ```bash
 brew install allure
 ```
 
-### Windows
-
+**Windows**
 ```bash
 npm install -g allure-commandline
 ```
 
-Generate report
+Generate and open:
 
 ```bash
-allure generate allure-results --clean
+npm run allure:generate
+npm run allure:open
 ```
 
-Open report
+Or serve directly:
 
 ```bash
-allure open allure-report
-```
-
-Or
-
-```bash
-allure serve allure-results
+npm run allure:serve
 ```
 
 ---
 
-# 📸 Screenshots
+# 📸 Screenshots & 🎥 Trace
 
-Screenshots are automatically captured during test execution.
-
-Location
-
-```text
-test-results/
-```
-
----
-
-# 🎥 Trace
-
-Trace files are generated for debugging.
-
-Open trace
+Screenshots (`only-on-failure`) and videos (`retain-on-failure`) land in `test-results/`. Traces are captured `on-first-retry`:
 
 ```bash
 npx playwright show-trace trace.zip
@@ -182,152 +189,80 @@ npx playwright show-trace trace.zip
 
 # 📁 Framework Modules
 
-## 📂 tests
+## `tests/`
 
-Contains all automation test cases.
+One spec file per feature/module. Tests stay **flat** — no `test.step()` wrapping and no separate "steps" layer. Each `test()` body just calls page-object methods directly in order, so the spec itself reads as the steps:
 
-Example
+```ts
+test('shows an error for invalid credentials', async ({ loginPage }) => {
+  await loginPage.goto();
+  await loginPage.login('standard_user', 'wrong-password');
+  await loginPage.assertVisible(loginPage.errorMessage);
+});
+```
 
-```text
-sample.spec.ts
+## `src/pages/`
+
+Page Object Model classes. Locators are built **inside** the page object (`page.locator(...)`, `page.getByRole(...)`, etc.) and exposed as readonly fields — `BasePage` never needs to know how a locator was built, only what to do with it.
+
+## `src/fixtures/`
+
+One fixture file per module instead of a single bloated base fixture:
+
+```ts
+// login.fixture.ts — only knows about LoginPage
+export const test = base.extend<{ loginPage: LoginPage }>({
+  loginPage: async ({ page }, use) => use(new LoginPage(page)),
+});
+```
+
+A spec that only touches login imports `login.fixture` directly. A spec that needs both login **and** inventory imports the merged fixture from `src/fixtures/index.ts` (built with Playwright's `mergeTests`), so you only ever pull in the page objects a given spec actually uses.
+
+## `src/utils/base_pages.ts`
+
+Reusable action/assertion methods, **one method per behaviour** — `click`, `fill`, `check`, `assertVisible`, etc. — each taking a `Locator` parameter, instead of separate `clickByRole` / `clickByTestId` / `clickByLabel` / `clickByPlaceholder` variants of every action. Locator strategy is the page object's concern; `BasePage` just acts on whatever `Locator` it's handed.
+
+```ts
+// in BasePage
+async click(locator: Locator, name?: string) { ... }
+
+// in a page object
+await this.click(this.loginButton, 'login button');
 ```
 
 ---
 
-## 📂 src/pages
+# 🎬 Demo
 
-Contains all Page Object Model classes.
+`tests/login.spec.ts` and `tests/inventory.spec.ts` exercise the framework end-to-end against the public [Sauce Demo](https://www.saucedemo.com/) site:
 
-Example
+- **`login.spec.ts`** — uses the `login.fixture` directly to assert an error shows for bad credentials.
+- **`inventory.spec.ts`** — uses the merged fixture (`loginPage` + `inventoryPage`) to log in, land on the products page, and add an item to the cart.
 
-```text
-LoginPage.ts
-HomePage.ts
-SearchPage.ts
-```
+Run them with:
 
----
-
-## 📂 src/fixtures
-
-Contains reusable Playwright fixtures.
-
-Example
-
-```text
-baseFixture.ts
-```
-
----
-
-## 📂 src/utils
-
-Contains reusable helper methods.
-
-Examples
-
-```text
-DateUtil.ts
-Logger.ts
-CommonUtil.ts
+```bash
+npm test
 ```
 
 ---
 
 # 🌐 Browser Support
 
-- Chromium
-- Firefox
-- WebKit
+- Chromium (enabled by default in `playwright.config.ts`)
+- Firefox / WebKit / mobile / branded browsers are available — uncomment the relevant `projects` entry to turn them on.
 
 ---
 
-# 📦 Useful Commands
+# ✅ Best Practices Followed Here
 
-Install dependencies
-
-```bash
-npm install
-```
-
-Install browsers
-
-```bash
-npx playwright install
-```
-
-Run all tests
-
-```bash
-npm test
-```
-
-Run headed mode
-
-```bash
-npx playwright test --headed
-```
-
-Run specific browser
-
-```bash
-npx playwright test --project=chromium
-```
-
-Open HTML Report
-
-```bash
-npx playwright show-report
-```
-
-Generate Allure Report
-
-```bash
-allure generate allure-results --clean
-```
-
-Serve Allure Report
-
-```bash
-allure serve allure-results
-```
-
----
-
-# 🏗 Framework Architecture
-
-```text
-                    Test Cases
-                         │
-                         ▼
-                 Playwright Fixtures
-                         │
-                         ▼
-                 Page Object Classes
-                         │
-                         ▼
-                  Utility Classes
-                         │
-                         ▼
-                    Playwright API
-                         │
-                         ▼
-                 Browser / Context / Page
-```
-
----
-
-# ✅ Best Practices
-
-- Follow Page Object Model (POM)
-- Keep locators inside Page classes
-- Reuse Fixtures
-- Avoid hardcoded waits
-- Use Playwright auto waiting
-- Write reusable utility methods
-- Keep test data separate
-- Use explicit assertions
-- Generate Allure reports for every execution
+- Page Object Model (POM) with locators defined in the page object
+- One action/assertion method per behaviour in `BasePage`, parameterized by `Locator`
+- One fixture per module, merged only where a spec needs more than one
+- No hardcoded waits — Playwright auto-waiting + explicit `waitFor`/`expect`
+- Flat tests, no `test.step()` / steps-function layer
+- Environment config isolated per `env/.env.<name>` file, selected via `ENV`
+- Explicit assertions via `BasePage`'s `assert*` methods
 
 ---
 

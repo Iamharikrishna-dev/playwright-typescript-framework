@@ -1,0 +1,4 @@
+2026-06-21 18:27:59 [info]: Navigating to https://www.saucedemo.com/
+2026-06-21 18:28:01 [info]: Filling username field with "standard_user"
+2026-06-21 18:28:01 [info]: Filling password field with "wrong-password"
+2026-06-21 18:28:01 [info]: Clicking login button
